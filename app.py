@@ -7,7 +7,6 @@ import uuid
 
 app = Flask(__name__)
 
-os.makedirs('temp_uploads', exist_ok=True)
 os.makedirs('people', exist_ok=True)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -49,12 +48,11 @@ def decode_base64_image(base64_string):
             base64_string = base64_string.split(',')[1]
         image_data = base64.b64decode(base64_string)
         temp_filename = f"temp_{uuid.uuid4().hex}.jpg"
-        temp_path = os.path.join('temp_uploads', temp_filename)
-        with open(temp_path, 'wb') as f:
+        with open(temp_filename, 'wb') as f:
             f.write(image_data)
-        return temp_path
+        return temp_filename, base64_string
     except:
-        return None
+        return None, None
 
 @app.route('/verify', methods=['POST'])
 def verify():
@@ -64,7 +62,7 @@ def verify():
             return jsonify({'match': False, 'error': 'person_id e image_base64 obrigatórios'}), 400
         
         person_id = data['person_id']
-        temp_path = decode_base64_image(data['image_base64'])
+        temp_path, base64_data = decode_base64_image(data['image_base64'])
         
         if not temp_path:
             return jsonify({'match': False, 'error': 'Erro ao decodificar imagem'}), 400
@@ -89,6 +87,15 @@ def verify():
             
             avg_similarity = sum(similarities) / len(similarities)
             is_match = avg_similarity > 0.7
+            
+            if is_match:
+                person_folder = os.path.join('people', person_id)
+                saved_filename = f"match_{uuid.uuid4().hex}.jpg"
+                saved_path = os.path.join(person_folder, saved_filename)
+                
+                image_data = base64.b64decode(base64_data)
+                with open(saved_path, 'wb') as f:
+                    f.write(image_data)
             
             return jsonify({
                 'match': is_match,
