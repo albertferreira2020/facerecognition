@@ -13,11 +13,12 @@ cd facerecognition
 ### 2. Criar e ativar ambiente virtual
 ```bash
 # Criar venv
-python3 -m venv venv_new
+python3 -m venv venv
 
 # Ativar venv (macOS/Linux)
-source venv_new/bin/activate
+source venv/bin/activate
 
+pip install --upgrade pip
 # Ativar venv (Windows)
 # venv_new\Scripts\activate
 ```
