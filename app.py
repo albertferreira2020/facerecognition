@@ -304,23 +304,46 @@ def verify():
                 combined_scores = [s['combined'] for s in similarities]
                 correlations = [s['correlation'] for s in similarities]
                 euclidean_distances = [s['euclidean'] for s in similarities]
+                cosine_sims = [s['cosine'] for s in similarities]
                 
                 max_combined = float(max(combined_scores))
                 avg_combined = float(np.mean(combined_scores))
                 max_correlation = float(max(correlations))
+                avg_correlation = float(np.mean(correlations))
                 min_euclidean = float(min(euclidean_distances))
+                max_cosine = float(max(cosine_sims))
                 
-                # Critérios de matching mais flexíveis
-                # Usar score combinado > 0.4 OU correlação > 0.6
-                is_match = bool(max_combined > 0.4 or max_correlation > 0.6)
+                # CRITÉRIOS MUITO MAIS RIGOROSOS PARA REDUZIR FALSOS POSITIVOS
+                # Todas essas condições devem ser satisfeitas simultaneamente
+                strict_conditions = [
+                    max_correlation > 0.80,        # Correlação muito alta
+                    min_euclidean < 2.5,           # Distância euclidiana muito baixa
+                    max_cosine > 0.85,             # Similaridade cosseno muito alta
+                    max_combined > 0.70,           # Score combinado alto
+                    avg_correlation > 0.70,        # Média de correlação alta
+                    avg_combined > 0.60            # Média do score combinado alta
+                ]
                 
-                # Log para debugging
+                # Para ser considerado match, precisa passar em TODAS as condições
+                conditions_passed = sum(strict_conditions)
+                is_match = conditions_passed >= 5  # Pelo menos 5 das 6 condições
+                
+                # Se tem poucas imagens de referência, ser ainda mais rigoroso
+                if len(person_encodings) <= 3:
+                    # Com poucas referências, exigir perfeição quase total
+                    is_match = is_match and max_correlation > 0.85 and max_combined > 0.75
+                
+                # Log detalhado para debugging
                 print(f"Pessoa {person_id}:")
-                print(f"  Max Combined Score: {max_combined:.4f}")
-                print(f"  Avg Combined Score: {avg_combined:.4f}")
-                print(f"  Max Correlation: {max_correlation:.4f}")
-                print(f"  Min Euclidean: {min_euclidean:.4f}")
-                print(f"  Match: {is_match}")
+                print(f"  Max Correlation: {max_correlation:.4f} (>0.80: {max_correlation > 0.80})")
+                print(f"  Min Euclidean: {min_euclidean:.4f} (<2.5: {min_euclidean < 2.5})")
+                print(f"  Max Cosine: {max_cosine:.4f} (>0.85: {max_cosine > 0.85})")
+                print(f"  Max Combined: {max_combined:.4f} (>0.70: {max_combined > 0.70})")
+                print(f"  Avg Correlation: {avg_correlation:.4f} (>0.70: {avg_correlation > 0.70})")
+                print(f"  Avg Combined: {avg_combined:.4f} (>0.60: {avg_combined > 0.60})")
+                print(f"  Condições passadas: {conditions_passed}/6")
+                print(f"  Imagens de referência: {len(person_encodings)}")
+                print(f"  Match FINAL: {is_match}")
                 
                 if is_match:
                     person_folder = os.path.join('people', person_id)
@@ -333,12 +356,23 @@ def verify():
                 
                 return jsonify({
                     'match': bool(is_match),
-                    'max_combined_score': float(round(max_combined, 4)),
-                    'avg_combined_score': float(round(avg_combined, 4)),
                     'max_correlation': float(round(max_correlation, 4)),
                     'min_euclidean_distance': float(round(min_euclidean, 4)),
+                    'max_cosine_similarity': float(round(max_cosine, 4)),
+                    'max_combined_score': float(round(max_combined, 4)),
+                    'avg_correlation': float(round(avg_correlation, 4)),
+                    'avg_combined_score': float(round(avg_combined, 4)),
+                    'conditions_passed': conditions_passed,
+                    'total_conditions': 6,
                     'num_comparisons': len(similarities),
-                    'confidence': float(round(max(max_combined, max_correlation), 4))
+                    'num_reference_images': len(person_encodings),
+                    'confidence_level': 'very_high' if conditions_passed >= 6 else 'medium' if conditions_passed >= 4 else 'low',
+                    'thresholds_info': {
+                        'correlation_threshold': 0.80,
+                        'euclidean_threshold': 2.5,
+                        'cosine_threshold': 0.85,
+                        'combined_threshold': 0.70
+                    }
                 })
                 
             finally:  
