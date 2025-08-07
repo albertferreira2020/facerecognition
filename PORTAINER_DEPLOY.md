@@ -37,35 +37,35 @@
 
 2. **Copiar Docker Compose**
    ```yaml
-   version: '3.8'
+version: '3.8'
 
-   services:
-     facerecognition:
-       build: .
-       container_name: facerecognition-api
-       ports:
-         - "3000:3000"
-       volumes:
-         - people_data:/app/people
-         - ./logs:/app/logs
-       environment:
-         - FLASK_ENV=production
-         - PYTHONUNBUFFERED=1
-       restart: unless-stopped
-       healthcheck:
-         test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-         interval: 30s
-         timeout: 10s
-         retries: 5
-         start_period: 40s
+services:
+  facerecognition:
+    build: .
+    container_name: facerecognition-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - people_data:/app/people
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
-   volumes:
-     people_data:
-       driver: local
+volumes:
+  people_data:
+    driver: local
 
-   networks:
-     default:
-       name: facerecognition_network
+networks:
+  default:
+    name: facerecognition_network
    ```
 
 3. **Deploy**
