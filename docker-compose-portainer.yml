@@ -9,10 +9,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Volume persistente para armazenar as imagens das pessoas
       - people_data:/app/people
-      # Volume para logs (opcional)
-      - ./logs:/app/logs
+      - logs_data:/app/logs
     environment:
       - FLASK_ENV=production
       - PYTHONUNBUFFERED=1
@@ -27,7 +25,5 @@ services:
 volumes:
   people_data:
     driver: local
-
-networks:
-  default:
-    name: facerecognition_network
+  logs_data:
+    driver: local

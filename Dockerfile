@@ -27,10 +27,7 @@ COPY app.py .
 COPY test_recognition.py .
 COPY README_MELHORIAS.md .
 
-# Copiar pasta people com imagens de referência
-COPY people/ ./people/
-
-# Criar diretório people para armazenar imagens (caso não exista)
+# Criar diretório people para armazenar imagens (será montado como volume)
 RUN mkdir -p people
 
 # Expor porta

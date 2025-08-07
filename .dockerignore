@@ -52,9 +52,11 @@ logs/
 *.log
 
 # Docker
-Dockerfile*
-docker-compose*.yml
 .dockerignore
 
 # Requirements (use only docker version)
 requirements.txt
+requirements-linux.txt
+
+# Allow people folder for reference images
+!people/
