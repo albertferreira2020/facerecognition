@@ -41,7 +41,9 @@ version: '3.8'
 
 services:
   facerecognition:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: facerecognition-api
     ports:
       - "3000:3000"
