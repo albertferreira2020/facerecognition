@@ -22,7 +22,7 @@
 3. **Configurar Repository**
    - Selecione `Repository`
    - Repository URL: `https://github.com/albertferreira2020/facerecognition.git`
-   - Reference: `main`
+   - Reference: `refs/heads/main`
    - Compose path: `docker-compose-simple.yml`
 
 4. **Deploy**
@@ -41,20 +41,19 @@
 
    services:
      facerecognition:
-       build: 
-         context: https://github.com/albertferreira2020/facerecognition.git
-         dockerfile: Dockerfile
+       build: .
        container_name: facerecognition-api
        ports:
-         - "5001:5001"
+         - "3000:3000"
        volumes:
          - people_data:/app/people
+         - ./logs:/app/logs
        environment:
          - FLASK_ENV=production
          - PYTHONUNBUFFERED=1
        restart: unless-stopped
        healthcheck:
-         test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/health', timeout=5)"]
+         test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
          interval: 30s
          timeout: 10s
          retries: 5
@@ -63,6 +62,10 @@
    volumes:
      people_data:
        driver: local
+
+   networks:
+     default:
+       name: facerecognition_network
    ```
 
 3. **Deploy**
@@ -78,12 +81,12 @@
 ### Testar API
 1. **Health Check**
    ```bash
-   curl http://seu-servidor:5001/health
+   curl http://seu-servidor:3000/health
    ```
 
 2. **Teste de Reconhecimento**
    ```bash
-   curl -X POST http://seu-servidor:5001/verify \
+   curl -X POST http://seu-servidor:3000/verify \
         -H "Content-Type: application/json" \
         -d '{
           "person_id": "test",
@@ -97,7 +100,7 @@
 - No Portainer: `Stacks` > `facerecognition-api` > `facerecognition` > `Logs`
 
 ### Métricas
-- Health check endpoint: `http://seu-servidor:5001/health`
+- Health check endpoint: `http://seu-servidor:3000/health`
 - Status: `docker ps` via console
 
 ### Volume de Dados
@@ -119,11 +122,11 @@
 
 ### Container não inicia
 1. Verificar logs: `Stacks` > `facerecognition-api` > `Logs`
-2. Verificar se a porta 5001 não está em uso
+2. Verificar se a porta 3000 não está em uso
 3. Verificar recursos do servidor (RAM/CPU)
 
 ### API não responde
-1. Verificar health check: `curl http://localhost:5001/health`
+1. Verificar health check: `curl http://localhost:3000/health`
 2. Verificar logs para erros de dependências
 3. Restart do container via Portainer
 
@@ -142,7 +145,7 @@
 ### Firewall
 ```bash
 # Permitir apenas porta necessária
-ufw allow 5001/tcp
+ufw allow 3000/tcp
 ```
 
 ## 📈 Performance
