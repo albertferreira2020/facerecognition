@@ -229,6 +229,147 @@ def decode_base64_image(base64_string):
     except:
         return None, None
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'service': 'face-recognition-api',
+        'timestamp': uuid.uuid4().hex[:8]
+    })
+
+@app.route('/register', methods=['POST'])
+def register_person():
+    """
+    Cadastra uma nova pessoa com múltiplas imagens de referência
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'JSON inválido'}), 400
+        
+        if 'person_id' not in data:
+            return jsonify({'error': 'person_id é obrigatório'}), 400
+        
+        if 'image_base64' not in data:
+            return jsonify({'error': 'image_base64 é obrigatório'}), 400
+        
+        person_id = data['person_id']
+        images_base64 = data['image_base64']
+        
+        # Validar se é uma lista
+        if not isinstance(images_base64, list):
+            return jsonify({'error': 'image_base64 deve ser um array'}), 400
+        
+        if len(images_base64) == 0:
+            return jsonify({'error': 'Pelo menos uma imagem é necessária'}), 400
+        
+        if len(images_base64) > 10:
+            return jsonify({'error': 'Máximo de 10 imagens por pessoa'}), 400
+        
+        # Validar person_id
+        if not person_id or not person_id.strip():
+            return jsonify({'error': 'person_id não pode estar vazio'}), 400
+        
+        # Criar pasta da pessoa
+        person_folder = os.path.join('people', person_id)
+        os.makedirs(person_folder, exist_ok=True)
+        
+        saved_images = []
+        failed_images = []
+        
+        for i, image_base64 in enumerate(images_base64):
+            try:
+                # Decodificar imagem base64
+                temp_path, _ = decode_base64_image(image_base64)
+                
+                if not temp_path:
+                    failed_images.append({
+                        'index': i,
+                        'error': 'Erro ao decodificar imagem base64'
+                    })
+                    continue
+                
+                try:
+                    # Verificar se a imagem tem uma face válida
+                    processed_temp_path = preprocess_image_for_better_detection(temp_path)
+                    
+                    try:
+                        encoding = load_and_encode(processed_temp_path)
+                        
+                        if encoding is None:
+                            failed_images.append({
+                                'index': i,
+                                'error': 'Nenhuma face detectada na imagem'
+                            })
+                        else:
+                            # Salvar imagem na pasta da pessoa
+                            image_filename = f"reference_{i+1}_{uuid.uuid4().hex[:8]}.jpg"
+                            image_path = os.path.join(person_folder, image_filename)
+                            
+                            # Decodificar e salvar imagem original
+                            image_base64_clean = image_base64
+                            if ',' in image_base64_clean:
+                                image_base64_clean = image_base64_clean.split(',')[1]
+                            
+                            image_data = base64.b64decode(image_base64_clean)
+                            with open(image_path, 'wb') as f:
+                                f.write(image_data)
+                            
+                            saved_images.append({
+                                'index': i,
+                                'filename': image_filename,
+                                'path': image_path
+                            })
+                            
+                    finally:
+                        # Limpar arquivo temporário processado
+                        if processed_temp_path != temp_path and os.path.exists(processed_temp_path):
+                            os.remove(processed_temp_path)
+                
+                finally:
+                    # Limpar arquivo temporário original
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                        
+            except Exception as e:
+                failed_images.append({
+                    'index': i,
+                    'error': f'Erro ao processar imagem: {str(e)}'
+                })
+        
+        # Verificar se pelo menos uma imagem foi salva com sucesso
+        if len(saved_images) == 0:
+            # Se nenhuma imagem foi salva, remover pasta criada
+            try:
+                if os.path.exists(person_folder) and not os.listdir(person_folder):
+                    os.rmdir(person_folder)
+            except:
+                pass
+            
+            return jsonify({
+                'success': False,
+                'error': 'Nenhuma imagem válida foi processada',
+                'failed_images': failed_images
+            }), 400
+        
+        # Retornar resultado
+        return jsonify({
+            'success': True,
+            'person_id': person_id,
+            'total_images_received': len(images_base64),
+            'images_saved': len(saved_images),
+            'images_failed': len(failed_images),
+            'saved_images': saved_images,
+            'failed_images': failed_images if failed_images else None,
+            'message': f'Pessoa {person_id} cadastrada com sucesso com {len(saved_images)} imagem(ns) de referência'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Erro interno do servidor: {str(e)}'
+        }), 500
+
 @app.route('/verify', methods=['POST'])
 def verify():
     try:
@@ -388,4 +529,4 @@ def verify():
         return jsonify({'match': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    app.run(host='0.0.0.0', port=3000)

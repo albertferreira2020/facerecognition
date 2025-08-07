@@ -1,0 +1,35 @@
+# version: "3.8"
+
+services:
+  facerecognition:
+    build: .
+    container_name: facerecognition-api
+    ports:
+      - "3000:3000"
+    volumes:
+      # Volume persistente para armazenar as imagens das pessoas
+      - people_data:/app/people
+      # Volume para logs (opcional)
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.facerecognition.rule=Host(`facerecognition.localhost`)"
+      - "traefik.http.services.facerecognition.loadbalancer.server.port=3000"
+
+volumes:
+  people_data:
+    driver: local
+
+networks:
+  default:
+    name: facerecognition_network

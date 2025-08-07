@@ -64,21 +64,66 @@ people/
 python app.py
 ```
 
-A API estará rodando em: `http://localhost:5001`
+A API estará rodando em: `http://localhost:3000`
 
-## 📍 Endpoint
+## 📍 Endpoints
+
+### POST `/register`
+Cadastra uma nova pessoa com múltiplas imagens de referência.
+
+**Parâmetros:**
+- `person_id`: ID único da pessoa (string)
+- `image_base64`: Array de imagens em formato base64 (máximo 10 imagens)
+
+**Exemplo usando curl:**
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "person_id": "123456789",
+    "image_base64": [
+      "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAA...",
+      "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAA..."
+    ]
+  }' \
+  http://localhost:3000/register
+```
+
+**Resposta de sucesso:**
+```json
+{
+    "success": true,
+    "person_id": "123456789",
+    "total_images_received": 2,
+    "images_saved": 2,
+    "images_failed": 0,
+    "saved_images": [
+        {
+            "index": 0,
+            "filename": "reference_1_a1b2c3d4.jpg",
+            "path": "people/123456789/reference_1_a1b2c3d4.jpg"
+        }
+    ],
+    "message": "Pessoa 123456789 cadastrada com sucesso com 2 imagem(ns) de referência"
+}
+```
 
 ### POST `/verify`
 Verifica se há match facial com as imagens de referência.
 
 **Parâmetros:**
-- `image`: Arquivo de imagem (JPG, PNG, JPEG, GIF)
+- `person_id`: ID da pessoa para verificar
+- `image_base64`: Imagem em formato base64 para comparar
 
 **Exemplo usando curl:**
 ```bash
 curl -X POST \
-  -F "image=@sua_foto.jpg" \
-  http://localhost:5001/verify
+  -H "Content-Type: application/json" \
+  -d '{
+    "person_id": "123456789",
+    "image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAA..."
+  }' \
+  http://localhost:3000/verify
 ```
 
 **Resposta de sucesso:**
@@ -104,21 +149,33 @@ curl -X POST \
 ## 🧪 Teste Rápido
 
 ```bash
-# Com uma imagem de teste
-curl -X POST -F "image=@teste.jpg" http://localhost:5001/verify
+# Cadastrar uma pessoa
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "person_id": "123456789",
+    "image_base64": ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAA..."]
+  }' \
+  http://localhost:3000/register
+
+# Verificar uma pessoa
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "person_id": "123456789", 
+    "image_base64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAA..."
+  }' \
+  http://localhost:3000/verify
 
 # Verificar se API está rodando
-curl http://localhost:5001/
-
-# Usar script de teste
-python test_api.py teste.jpg
+curl http://localhost:3000/health
 ```
 
 ## ⚙️ Configurações
 
 - **Threshold**: 0.7 (valores maiores = mais restritivo)
 - **Formatos suportados**: PNG, JPG, JPEG, GIF
-- **Porta**: 5001
+- **Porta**: 3000
 - **Algoritmo**: OpenCV + correlação normalizada
 
 ## 🔧 Solução de Problemas
