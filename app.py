@@ -454,35 +454,54 @@ def verify():
                 min_euclidean = float(min(euclidean_distances))
                 max_cosine = float(max(cosine_sims))
                 
-                # CRITÉRIOS MUITO MAIS RIGOROSOS PARA REDUZIR FALSOS POSITIVOS
-                # Todas essas condições devem ser satisfeitas simultaneamente
-                strict_conditions = [
-                    max_correlation > 0.80,        # Correlação muito alta
-                    min_euclidean < 2.5,           # Distância euclidiana muito baixa
-                    max_cosine > 0.85,             # Similaridade cosseno muito alta
-                    max_combined > 0.70,           # Score combinado alto
-                    avg_correlation > 0.70,        # Média de correlação alta
-                    avg_combined > 0.60            # Média do score combinado alta
+                # CRITÉRIOS ADAPTATIVOS - Mais inteligentes e flexíveis
+                conditions = [
+                    max_correlation > 0.75,        # Correlação alta (mais flexível)
+                    min_euclidean < 4.0,           # Distância euclidiana relaxada
+                    max_cosine > 0.80,             # Similaridade cosseno alta
+                    max_combined > 0.60,           # Score combinado moderado
+                    avg_correlation > 0.65,        # Média de correlação boa
+                    avg_combined > 0.55            # Média do score combinado boa
                 ]
                 
-                # Para ser considerado match, precisa passar em TODAS as condições
-                conditions_passed = sum(strict_conditions)
-                is_match = conditions_passed >= 5  # Pelo menos 5 das 6 condições
+                conditions_passed = sum(conditions)
                 
-                # Se tem poucas imagens de referência, ser ainda mais rigoroso
-                if len(person_encodings) <= 3:
-                    # Com poucas referências, exigir perfeição quase total
-                    is_match = is_match and max_correlation > 0.85 and max_combined > 0.75
+                # Sistema de decisão inteligente baseado em múltiplos fatores
+                strong_indicators = [
+                    max_correlation > 0.80,        # Correlação muito forte
+                    max_cosine > 0.85,             # Cosseno muito alto
+                    min_euclidean < 3.0,           # Distância euclidiana muito boa
+                    max_combined > 0.65            # Score combinado bom
+                ]
+                
+                strong_indicators_passed = sum(strong_indicators)
+                
+                # Critérios mais flexíveis:
+                # 1. Se passou em pelo menos 4 condições básicas, considerar match
+                # 2. OU se passou em pelo menos 2 indicadores fortes + 3 condições básicas
+                # 3. OU se correlação e cosseno são muito altos (independente do resto)
+                
+                is_match = (
+                    conditions_passed >= 4 or  # 4 das 6 condições básicas
+                    (strong_indicators_passed >= 2 and conditions_passed >= 3) or  # 2 fortes + 3 básicas
+                    (max_correlation > 0.82 and max_cosine > 0.87)  # Correlação e cosseno excelentes
+                )
+                
+                # Ajuste para poucas imagens de referência (ser mais leniente, não mais rigoroso)
+                if len(person_encodings) <= 2:
+                    # Com apenas 1-2 referências, aceitar se pelo menos um indicador forte + 2 básicas
+                    is_match = is_match or (strong_indicators_passed >= 1 and conditions_passed >= 2)
                 
                 # Log detalhado para debugging
                 print(f"Pessoa {person_id}:")
-                print(f"  Max Correlation: {max_correlation:.4f} (>0.80: {max_correlation > 0.80})")
-                print(f"  Min Euclidean: {min_euclidean:.4f} (<2.5: {min_euclidean < 2.5})")
-                print(f"  Max Cosine: {max_cosine:.4f} (>0.85: {max_cosine > 0.85})")
-                print(f"  Max Combined: {max_combined:.4f} (>0.70: {max_combined > 0.70})")
-                print(f"  Avg Correlation: {avg_correlation:.4f} (>0.70: {avg_correlation > 0.70})")
-                print(f"  Avg Combined: {avg_combined:.4f} (>0.60: {avg_combined > 0.60})")
-                print(f"  Condições passadas: {conditions_passed}/6")
+                print(f"  Max Correlation: {max_correlation:.4f} (>0.75: {max_correlation > 0.75})")
+                print(f"  Min Euclidean: {min_euclidean:.4f} (<4.0: {min_euclidean < 4.0})")
+                print(f"  Max Cosine: {max_cosine:.4f} (>0.80: {max_cosine > 0.80})")
+                print(f"  Max Combined: {max_combined:.4f} (>0.60: {max_combined > 0.60})")
+                print(f"  Avg Correlation: {avg_correlation:.4f} (>0.65: {avg_correlation > 0.65})")
+                print(f"  Avg Combined: {avg_combined:.4f} (>0.55: {avg_combined > 0.55})")
+                print(f"  Condições básicas passadas: {conditions_passed}/6")
+                print(f"  Indicadores fortes passados: {strong_indicators_passed}/4")
                 print(f"  Imagens de referência: {len(person_encodings)}")
                 print(f"  Match FINAL: {is_match}")
                 
@@ -503,16 +522,28 @@ def verify():
                     'max_combined_score': float(round(max_combined, 4)),
                     'avg_correlation': float(round(avg_correlation, 4)),
                     'avg_combined_score': float(round(avg_combined, 4)),
-                    'conditions_passed': conditions_passed,
-                    'total_conditions': 6,
+                    'basic_conditions_passed': conditions_passed,
+                    'strong_indicators_passed': strong_indicators_passed,
+                    'total_basic_conditions': 6,
+                    'total_strong_indicators': 4,
                     'num_comparisons': len(similarities),
                     'num_reference_images': len(person_encodings),
-                    'confidence_level': 'very_high' if conditions_passed >= 6 else 'medium' if conditions_passed >= 4 else 'low',
+                    'confidence_level': 'very_high' if strong_indicators_passed >= 3 else 'high' if strong_indicators_passed >= 2 else 'medium' if conditions_passed >= 4 else 'low',
+                    'decision_factors': {
+                        'basic_threshold_met': conditions_passed >= 4,
+                        'strong_indicators_met': strong_indicators_passed >= 2 and conditions_passed >= 3,
+                        'excellent_correlation_cosine': max_correlation > 0.82 and max_cosine > 0.87,
+                        'few_references_bonus': len(person_encodings) <= 2 and strong_indicators_passed >= 1 and conditions_passed >= 2
+                    },
                     'thresholds_info': {
-                        'correlation_threshold': 0.80,
-                        'euclidean_threshold': 2.5,
-                        'cosine_threshold': 0.85,
-                        'combined_threshold': 0.70
+                        'basic_correlation_threshold': 0.75,
+                        'basic_euclidean_threshold': 4.0,
+                        'basic_cosine_threshold': 0.80,
+                        'basic_combined_threshold': 0.60,
+                        'strong_correlation_threshold': 0.80,
+                        'strong_euclidean_threshold': 3.0,
+                        'strong_cosine_threshold': 0.85,
+                        'strong_combined_threshold': 0.65
                     }
                 })
                 
