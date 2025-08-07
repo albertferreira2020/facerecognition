@@ -19,17 +19,18 @@
    - Clique em `+ Add stack`
    - Nomeie como: `facerecognition-api`
 
-3. **Configurar Repository**
-   - Selecione `Repository`
-   - Repository URL: `https://github.com/albertferreira2020/facerecognition.git`
-   - Reference: `refs/heads/main`
-   - Compose path: `docker-compose-simple.yml`
-   - **Importante:** Certifique-se de que o repositório foi clonado corretamente e o Dockerfile está presente
+3. **Configurar Repository (PASSO A PASSO)**
+   - ✅ Selecione `Repository`
+   - ✅ Repository URL: `https://github.com/albertferreira2020/facerecognition.git`
+   - ✅ **Reference:** Comece com `main` (se não funcionar, teste `refs/heads/main`)
+   - ✅ **Compose path:** Use `docker-compose-minimal.yml` (mais estável)
+   - ✅ **Authentication:** Deixe em branco (repositório público)
+   - ✅ **TLS Skip Verify:** Deixe desmarcado
 
 4. **Deploy**
    - Clique em `Deploy the stack`
    - Aguarde o build e deploy completar
-   - **Se der erro de Dockerfile:** Use o Método 2 (Web Editor) ou o arquivo `docker-compose-portainer.yml`
+   - **Se der erro:** Veja seção Troubleshooting abaixo
 
 ### Método 2: Via Web Editor
 
@@ -123,6 +124,26 @@ networks:
 2. No Portainer: `Pull and redeploy`
 
 ## 🛠️ Troubleshooting
+
+### Problema: "reference not found" ou "Unable to clone git repository"
+
+**Solução 1 - Diferentes formatos de Reference:**
+Teste estas opções em ordem:
+1. `main`
+2. `refs/heads/main` 
+3. `origin/main`
+4. `master` (caso o repositório use master)
+
+**Solução 2 - Verificar Repository URL:**
+- URL completa: `https://github.com/albertferreira2020/facerecognition.git`
+- Teste sem `.git`: `https://github.com/albertferreira2020/facerecognition`
+
+**Solução 3 - Compose file alternativo:**
+- Use `docker-compose-minimal.yml` (versão mais simples)
+- Use `docker-compose-portainer.yml` (versão completa)
+
+**Solução 4 - Método Web Editor:**
+Se nada funcionar, use o Método 2 (Web Editor) copiando o YAML diretamente.
 
 ### Problema: "failed to read dockerfile: open Dockerfile: no such file or directory"
 

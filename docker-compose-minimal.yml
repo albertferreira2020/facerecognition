@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  facerecognition:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: facerecognition-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - people_data:/app/people
+      - logs_data:/app/logs
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+volumes:
+  people_data:
+    driver: local
+  logs_data:
+    driver: local
