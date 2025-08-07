@@ -145,6 +145,21 @@ Teste estas opções em ordem:
 **Solução 4 - Método Web Editor:**
 Se nada funcionar, use o Método 2 (Web Editor) copiando o YAML diretamente.
 
+### Problema: "failed to compute cache key" ou "not found" durante build
+
+**Causa:** O Dockerfile estava tentando copiar arquivos que podem não estar disponíveis no contexto do Portainer.
+
+**Solução implementada:**
+1. ✅ Removido comando `COPY people/` problemático do Dockerfile
+2. ✅ Atualizado `.dockerignore` para controlar melhor os arquivos incluídos
+3. ✅ Usando volumes para dados persistentes em vez de copiar durante build
+4. ✅ Criando estrutura de diretórios em runtime, não em build time
+
+**Como resolver:**
+- Use `docker-compose-minimal.yml` ou `docker-compose-portainer.yml`
+- Ambos são otimizados para deploy no Portainer
+- Os dados serão persistidos nos volumes Docker automaticamente
+
 ### Problema: "failed to read dockerfile: open Dockerfile: no such file or directory"
 
 **Solução 1 - Verificar Repository:**
