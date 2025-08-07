@@ -16,7 +16,19 @@ face_cascade_profile = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascad
 def extract_lbp_features(image, radius=3, n_points=24):
     """
     Extrai características LBP (Local Binary Patterns) da imagem
-    Muito mais robusto que comparação de pixels simples
+    Muito mai                # Log detalhado para debugging
+                print(f"Pessoa {person_id}:")
+                print(f"  Max Correlation: {max_correlation:.4f} (>0.50: {max_correlation > 0.50})")
+                print(f"  Min Euclidean: {min_euclidean:.4f} (<8.0: {min_euclidean < 8.0})")
+                print(f"  Max Cosine: {max_cosine:.4f} (>0.75: {max_cosine > 0.75})")
+                print(f"  Max Combined: {max_combined:.4f} (>0.45: {max_combined > 0.45})")
+                print(f"  Avg Correlation: {avg_correlation:.4f} (>0.45: {avg_correlation > 0.45})")
+                print(f"  Avg Combined: {avg_combined:.4f} (>0.40: {avg_combined > 0.40})")
+                print(f"  Condições básicas passadas: {conditions_passed}/6")
+                print(f"  Indicadores fortes passados: {strong_indicators_passed}/4")
+                print(f"  High similarity metrics: {high_similarity_passed}/4")
+                print(f"  Imagens de referência: {len(person_encodings)}")
+                print(f"  Match FINAL: {is_match}")e comparação de pixels simples
     """
     from skimage import feature
     from skimage.color import rgb2gray
@@ -40,21 +52,57 @@ def extract_lbp_features(image, radius=3, n_points=24):
 
 def load_and_encode(image_path):
     """
-    Carrega uma imagem e extrai características faciais usando LBP
+    Carrega uma imagem e extrai características faciais usando múltiplas técnicas
+    Versão melhorada para maior robustez
     """
     try:
         image = cv2.imread(image_path)
         if image is None:
             return None
         
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Pré-processamento melhorado
+        # 1. Melhorar contraste usando CLAHE
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        l = clahe.apply(l)
+        enhanced = cv2.merge([l, a, b])
+        enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
         
-        # Detectar faces (tentar múltiplos detectores)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4, minSize=(50, 50))
+        gray = cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY)
         
+        # Detectar faces com múltiplas tentativas
+        faces = []
+        detection_params = [
+            (1.05, 3, (30, 30)),
+            (1.1, 4, (40, 40)),
+            (1.15, 5, (50, 50)),
+            (1.2, 3, (60, 60)),
+        ]
+        
+        for scale_factor, min_neighbors, min_size in detection_params:
+            # Detector frontal
+            detected = face_cascade.detectMultiScale(
+                gray, scale_factor, min_neighbors, minSize=min_size
+            )
+            if len(detected) > 0:
+                faces.extend(detected)
+                break  # Usar a primeira detecção bem-sucedida
+            
+            # Detector de perfil se frontal falhou
+            detected = face_cascade_profile.detectMultiScale(
+                gray, scale_factor, min_neighbors, minSize=min_size
+            )
+            if len(detected) > 0:
+                faces.extend(detected)
+                break
+        
+        # Se ainda não detectou faces, tentar com imagem original
         if len(faces) == 0:
-            # Tentar detector de perfil
-            faces = face_cascade_profile.detectMultiScale(gray, 1.1, 4, minSize=(50, 50))
+            gray_original = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray_original, 1.1, 4, minSize=(50, 50))
+            if len(faces) > 0:
+                gray = gray_original
         
         if len(faces) == 0:
             print(f"Nenhuma face detectada em {image_path}")
@@ -64,8 +112,8 @@ def load_and_encode(image_path):
         face = max(faces, key=lambda x: x[2] * x[3])
         x, y, w, h = face
         
-        # Extrair região da face com margem
-        margin = int(min(w, h) * 0.2)
+        # Extrair região da face com margem adaptativa maior
+        margin = int(min(w, h) * 0.25)  # Margem de 25% (era 20%)
         x1 = max(0, x - margin)
         y1 = max(0, y - margin)
         x2 = min(gray.shape[1], x + w + margin)
@@ -73,16 +121,27 @@ def load_and_encode(image_path):
         
         face_roi = gray[y1:y2, x1:x2]
         
-        # Redimensionar para tamanho padrão
-        face_roi = cv2.resize(face_roi, (128, 128))
+        # Redimensionar para tamanho padrão maior para preservar mais detalhes
+        face_roi = cv2.resize(face_roi, (160, 160))  # Era 128x128
         
-        # Normalizar iluminação
-        face_roi = cv2.equalizeHist(face_roi)
+        # Normalização de iluminação melhorada
+        # Aplicar CLAHE específico para a face
+        clahe_face = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))
+        face_roi = clahe_face.apply(face_roi)
         
-        # Extrair características LBP
+        # Suavização leve para reduzir ruído
+        face_roi = cv2.GaussianBlur(face_roi, (3, 3), 0)
+        
+        # Extrair características LBP com parâmetros otimizados
         try:
-            lbp_features = extract_lbp_features(face_roi)
-            return lbp_features
+            # Usar múltiplos raios para capturar diferentes escalas de textura
+            lbp_features_r1 = extract_lbp_features(face_roi, radius=1, n_points=8)
+            lbp_features_r2 = extract_lbp_features(face_roi, radius=2, n_points=16)
+            lbp_features_r3 = extract_lbp_features(face_roi, radius=3, n_points=24)
+            
+            # Combinar features de diferentes escalas
+            combined_features = np.concatenate([lbp_features_r1, lbp_features_r2, lbp_features_r3])
+            return combined_features
         except ImportError:
             # Fallback para HOG se scikit-image não estiver disponível
             return extract_hog_features(face_roi)
@@ -149,6 +208,7 @@ def extract_basic_features(image):
 def preprocess_image_for_better_detection(image_path):
     """
     Pré-processa a imagem para melhorar a detecção de faces
+    Versão melhorada com múltiplas técnicas
     """
     try:
         image = cv2.imread(image_path)
@@ -163,17 +223,32 @@ def preprocess_image_for_better_detection(image_path):
             new_height = int(height * scale)
             image = cv2.resize(image, (new_width, new_height))
         
-        # Melhorar contraste e brilho
+        # Múltiplas técnicas de melhoria de imagem
+        
+        # 1. Melhorar contraste e brilho com CLAHE mais suave
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))  # Menos agressivo
         l = clahe.apply(l)
         image = cv2.merge([l, a, b])
         image = cv2.cvtColor(image, cv2.COLOR_LAB2BGR)
         
+        # 2. Redução de ruído bilateral (preserva bordas)
+        denoised = cv2.bilateralFilter(image, 9, 75, 75)
+        
+        # 3. Sharpening muito sutil
+        kernel = np.array([[0,-1,0], [-1,5,-1], [0,-1,0]])  # Menos agressivo
+        sharpened = cv2.filter2D(denoised, -1, kernel)
+        
+        # 4. Correção de gamma para melhorar contraste
+        gamma = 1.2  # Leve ajuste
+        inv_gamma = 1.0 / gamma
+        table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+        gamma_corrected = cv2.LUT(sharpened, table)
+        
         # Salvar imagem processada temporariamente
         temp_path = f"temp_processed_{uuid.uuid4().hex}.jpg"
-        cv2.imwrite(temp_path, image)
+        cv2.imwrite(temp_path, gamma_corrected, [cv2.IMWRITE_JPEG_QUALITY, 95])
         return temp_path
         
     except Exception as e:
@@ -454,43 +529,59 @@ def verify():
                 min_euclidean = float(min(euclidean_distances))
                 max_cosine = float(max(cosine_sims))
                 
-                # CRITÉRIOS ADAPTATIVOS - Mais inteligentes e flexíveis
+                # CRITÉRIOS ADAPTATIVOS MELHORADOS - Baseados em dados reais
+                # Thresholds ajustados com base na análise das imagens da mesma pessoa
                 conditions = [
-                    max_correlation > 0.75,        # Correlação alta (mais flexível)
-                    min_euclidean < 4.0,           # Distância euclidiana relaxada
-                    max_cosine > 0.80,             # Similaridade cosseno alta
-                    max_combined > 0.60,           # Score combinado moderado
-                    avg_correlation > 0.65,        # Média de correlação boa
-                    avg_combined > 0.55            # Média do score combinado boa
+                    max_correlation > 0.50,        # Correlação moderada (era 0.75)
+                    min_euclidean < 8.0,           # Distância euclidiana mais permissiva (era 4.0)
+                    max_cosine > 0.75,             # Similaridade cosseno moderada (era 0.80)
+                    max_combined > 0.45,           # Score combinado mais baixo (era 0.60)
+                    avg_correlation > 0.45,        # Média de correlação mais flexível (era 0.65)
+                    avg_combined > 0.40            # Média do score combinado mais baixa (era 0.55)
                 ]
                 
                 conditions_passed = sum(conditions)
                 
                 # Sistema de decisão inteligente baseado em múltiplos fatores
                 strong_indicators = [
-                    max_correlation > 0.80,        # Correlação muito forte
-                    max_cosine > 0.85,             # Cosseno muito alto
-                    min_euclidean < 3.0,           # Distância euclidiana muito boa
-                    max_combined > 0.65            # Score combinado bom
+                    max_correlation > 0.70,        # Correlação forte (era 0.80)
+                    max_cosine > 0.80,             # Cosseno alto (era 0.85)
+                    min_euclidean < 5.0,           # Distância euclidiana boa (era 3.0)
+                    max_combined > 0.55            # Score combinado bom (era 0.65)
                 ]
                 
                 strong_indicators_passed = sum(strong_indicators)
                 
-                # Critérios mais flexíveis:
-                # 1. Se passou em pelo menos 4 condições básicas, considerar match
-                # 2. OU se passou em pelo menos 2 indicadores fortes + 3 condições básicas
-                # 3. OU se correlação e cosseno são muito altos (independente do resto)
+                # Critérios mais inteligentes e adaptativos:
+                # 1. Se passou em pelo menos 3 condições básicas (era 4)
+                # 2. OU se passou em pelo menos 2 indicadores fortes + 2 condições básicas (era 3)
+                # 3. OU se correlação e cosseno são altos (thresholds mais baixos)
+                # 4. OU se tem alta similaridade em pelo menos 2 métricas principais
+                
+                # Critério adicional: alta similaridade em múltiplas métricas
+                high_similarity_metrics = [
+                    max_correlation > 0.60,
+                    max_cosine > 0.78,
+                    min_euclidean < 6.0,
+                    max_combined > 0.50
+                ]
+                high_similarity_passed = sum(high_similarity_metrics)
                 
                 is_match = (
-                    conditions_passed >= 4 or  # 4 das 6 condições básicas
-                    (strong_indicators_passed >= 2 and conditions_passed >= 3) or  # 2 fortes + 3 básicas
-                    (max_correlation > 0.82 and max_cosine > 0.87)  # Correlação e cosseno excelentes
+                    conditions_passed >= 3 or  # 3 das 6 condições básicas (mais flexível)
+                    (strong_indicators_passed >= 2 and conditions_passed >= 2) or  # 2 fortes + 2 básicas
+                    (max_correlation > 0.65 and max_cosine > 0.78) or  # Correlação e cosseno bons
+                    high_similarity_passed >= 3  # Alta similaridade em pelo menos 3 métricas
                 )
                 
-                # Ajuste para poucas imagens de referência (ser mais leniente, não mais rigoroso)
+                # Ajuste para poucas imagens de referência (ser mais leniente)
                 if len(person_encodings) <= 2:
-                    # Com apenas 1-2 referências, aceitar se pelo menos um indicador forte + 2 básicas
-                    is_match = is_match or (strong_indicators_passed >= 1 and conditions_passed >= 2)
+                    # Com apenas 1-2 referências, aceitar critérios ainda mais flexíveis
+                    is_match = is_match or (
+                        strong_indicators_passed >= 1 and conditions_passed >= 2
+                    ) or (
+                        high_similarity_passed >= 2  # Apenas 2 métricas altas
+                    )
                 
                 # Log detalhado para debugging
                 print(f"Pessoa {person_id}:")
@@ -524,26 +615,33 @@ def verify():
                     'avg_combined_score': float(round(avg_combined, 4)),
                     'basic_conditions_passed': conditions_passed,
                     'strong_indicators_passed': strong_indicators_passed,
+                    'high_similarity_passed': high_similarity_passed,
                     'total_basic_conditions': 6,
                     'total_strong_indicators': 4,
+                    'total_high_similarity_metrics': 4,
                     'num_comparisons': len(similarities),
                     'num_reference_images': len(person_encodings),
-                    'confidence_level': 'very_high' if strong_indicators_passed >= 3 else 'high' if strong_indicators_passed >= 2 else 'medium' if conditions_passed >= 4 else 'low',
+                    'confidence_level': 'very_high' if strong_indicators_passed >= 3 else 'high' if strong_indicators_passed >= 2 or high_similarity_passed >= 3 else 'medium' if conditions_passed >= 3 else 'low',
                     'decision_factors': {
-                        'basic_threshold_met': conditions_passed >= 4,
-                        'strong_indicators_met': strong_indicators_passed >= 2 and conditions_passed >= 3,
-                        'excellent_correlation_cosine': max_correlation > 0.82 and max_cosine > 0.87,
-                        'few_references_bonus': len(person_encodings) <= 2 and strong_indicators_passed >= 1 and conditions_passed >= 2
+                        'basic_threshold_met': conditions_passed >= 3,
+                        'strong_indicators_met': strong_indicators_passed >= 2 and conditions_passed >= 2,
+                        'excellent_correlation_cosine': max_correlation > 0.65 and max_cosine > 0.78,
+                        'high_similarity_met': high_similarity_passed >= 3,
+                        'few_references_bonus': len(person_encodings) <= 2 and (strong_indicators_passed >= 1 or high_similarity_passed >= 2)
                     },
                     'thresholds_info': {
-                        'basic_correlation_threshold': 0.75,
-                        'basic_euclidean_threshold': 4.0,
-                        'basic_cosine_threshold': 0.80,
-                        'basic_combined_threshold': 0.60,
-                        'strong_correlation_threshold': 0.80,
-                        'strong_euclidean_threshold': 3.0,
-                        'strong_cosine_threshold': 0.85,
-                        'strong_combined_threshold': 0.65
+                        'basic_correlation_threshold': 0.50,
+                        'basic_euclidean_threshold': 8.0,
+                        'basic_cosine_threshold': 0.75,
+                        'basic_combined_threshold': 0.45,
+                        'strong_correlation_threshold': 0.70,
+                        'strong_euclidean_threshold': 5.0,
+                        'strong_cosine_threshold': 0.80,
+                        'strong_combined_threshold': 0.55,
+                        'high_similarity_correlation_threshold': 0.60,
+                        'high_similarity_euclidean_threshold': 6.0,
+                        'high_similarity_cosine_threshold': 0.78,
+                        'high_similarity_combined_threshold': 0.50
                     }
                 })
                 
