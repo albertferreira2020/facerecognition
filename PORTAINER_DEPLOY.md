@@ -24,10 +24,12 @@
    - Repository URL: `https://github.com/albertferreira2020/facerecognition.git`
    - Reference: `refs/heads/main`
    - Compose path: `docker-compose-simple.yml`
+   - **Importante:** Certifique-se de que o repositório foi clonado corretamente e o Dockerfile está presente
 
 4. **Deploy**
    - Clique em `Deploy the stack`
    - Aguarde o build e deploy completar
+   - **Se der erro de Dockerfile:** Use o Método 2 (Web Editor) ou o arquivo `docker-compose-portainer.yml`
 
 ### Método 2: Via Web Editor
 
@@ -122,6 +124,22 @@ networks:
 
 ## 🛠️ Troubleshooting
 
+### Problema: "failed to read dockerfile: open Dockerfile: no such file or directory"
+
+**Solução 1 - Verificar Repository:**
+1. Confirme que a URL está correta: `https://github.com/albertferreira2020/facerecognition.git`
+2. Use Reference: `refs/heads/main` (não apenas `main`)
+3. Compose path: `docker-compose-simple.yml`
+
+**Solução 2 - Web Editor:**
+1. Use o Método 2 (Web Editor) 
+2. Copie o YAML da seção "Copiar Docker Compose" desta documentação
+3. Cole no Web Editor do Portainer
+
+**Solução 3 - Arquivo alternativo:**
+1. Use `docker-compose-portainer.yml` como Compose path
+2. Este arquivo tem a mesma configuração mas pode resolver problemas de contexto
+
 ### Container não inicia
 1. Verificar logs: `Stacks` > `facerecognition-api` > `Logs`
 2. Verificar se a porta 3000 não está em uso
@@ -133,8 +151,15 @@ networks:
 3. Restart do container via Portainer
 
 ### Problemas de build
-1. Limpar imagens antigas: `docker system prune -a`
-2. Rebuild forçado: marcar `Re-build` no deploy
+1. **Erro "Dockerfile not found":**
+   - Verifique se está usando o arquivo correto: `docker-compose-simple.yml`
+   - Tente usar o Método 2 (Web Editor) copiando o YAML da documentação
+   - Alternativamente, use `docker-compose-portainer.yml` como Compose path
+   
+2. **Outros problemas de build:**
+   - Limpar imagens antigas: `docker system prune -a`
+   - Rebuild forçado: marcar `Re-build` no deploy
+   - Verificar logs detalhados do build no Portainer
 
 ## 🔐 Segurança
 
