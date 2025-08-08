@@ -57,17 +57,67 @@ pip install requests matplotlib  # Para scripts de teste
 
 ## Usage
 
-### Option A: Using face_recognition library (Better accuracy)
+### 🐳 Option A: Docker (Recommended for Production)
 ```bash
-python api.py
+# Clone o repositório
+git clone https://github.com/albertferreira2020/facerecognition.git
+cd facerecognition
+
+# Fazer deploy com Docker Compose
+./deploy.sh
+
+# Ou manualmente:
+docker-compose up -d --build
 ```
 
-### Option B: Using OpenCV only (Easier installation)
+The API will be available at http://localhost:3000
+
+### 🔧 Option B: Local Development
+
+#### Using face_recognition library (Better accuracy)
+```bash
+python api.py  # If available
+```
+
+#### Using OpenCV only (Easier installation)
 ```bash
 python api_opencv.py
 ```
 
-**Note**: If you have trouble installing `face_recognition`, use Option B with OpenCV.
+**Note**: If you have trouble installing `face_recognition`, use Docker or Option B with OpenCV.
+
+## 🐳 Docker Deployment
+
+### Quick Start
+```bash
+# Clone e execute
+git clone https://github.com/albertferreira2020/facerecognition.git
+cd facerecognition
+./deploy.sh
+```
+
+### Manual Docker Commands
+```bash
+# Build e start
+docker-compose up -d --build
+
+# Ver logs
+docker-compose logs -f
+
+# Parar
+docker-compose down
+
+# Rebuild (após mudanças no código)
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### Docker Features
+- ✅ **Porta 3000**: API rodando em http://localhost:3000
+- ✅ **Volume Persistente**: Dataset e modelos mantidos entre restarts
+- ✅ **Auto-restart**: Container reinicia automaticamente
+- ✅ **Otimizado**: Build otimizado com cache layers
+- ✅ **Produção**: Configurado para ambiente de produção
 
 ## Endpoints
 

@@ -5,6 +5,17 @@ from faceid.opencv_trainer import OpenCVFaceTrainer
 app = Flask(__name__)
 trainer = OpenCVFaceTrainer()
 
+@app.route('/', methods=['GET'])
+def health():
+    """Endpoint de health check"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Face Recognition API',
+        'version': '1.0.0',
+        'port': 3000,
+        'endpoints': ['/register', '/verify']
+    })
+
 @app.route('/register', methods=['POST'])
 def register():
     try:
@@ -99,4 +110,4 @@ def verify():
 
 if __name__ == '__main__':
     os.makedirs('dataset', exist_ok=True)
-    app.run(debug=True, host='0.0.0.0', port=3002)
+    app.run(debug=True, host='0.0.0.0', port=3000)
